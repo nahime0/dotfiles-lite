@@ -6,7 +6,8 @@ workstation paths, private material or large plugin trees.
 
 ## What is included
 
-- Zsh with history, completion, a small Git-aware prompt and conditional aliases.
+- Zsh with history, completion, conditional aliases and a native Nord-style
+  prompt showing Git state, command duration, exit status and hostname.
 - Git defaults and aliases, with no identity or signing policy.
 - tmux with `Ctrl+q`, Vi copy mode, mouse support and Vim-aware pane movement.
 - A plugin-free Neovim configuration in the `server` profile.

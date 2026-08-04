@@ -184,7 +184,7 @@ validate_configuration() {
             zsh -n "$zsh_file"
         done
         if [[ "$DRY_RUN" != true ]]; then
-            zsh -dfic 'source "$1"; [[ -n "${EDITOR:-}" ]]' _ "$LINK_SOURCE_ROOT/config/zsh/zshrc"
+            zsh -dfic 'source "$1"; false; _dotfiles_lite_prompt_precmd; [[ -n "${EDITOR:-}" && "$DOTFILES_PROMPT_LAST_STATUS" -eq 1 && "$DOTFILES_PROMPT_RIGHT" == *"%m"* ]]' _ "$LINK_SOURCE_ROOT/config/zsh/zshrc"
         fi
     else
         warn "Zsh is unavailable; skipping Zsh syntax validation."

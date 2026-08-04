@@ -61,6 +61,62 @@ fi
 
 git config --file "$ROOT/config/git/gitconfig" --get init.defaultBranch | grep -qx main
 
+if command -v zsh >/dev/null 2>&1; then
+    prompt_repo="$TEST_ROOT/prompt-repo"
+    git init -q -b main "$prompt_repo"
+    printf 'tracked\n' > "$prompt_repo/tracked.txt"
+    git -C "$prompt_repo" add tracked.txt
+    git -C "$prompt_repo" -c user.name=Test -c user.email=test@example.invalid \
+        -c commit.gpgsign=false commit -qm initial
+
+    (
+        cd "$prompt_repo"
+        zsh -dfic '
+            source "$1"
+            DOTFILES_PROMPT_STARTED=$((EPOCHREALTIME - 3.2))
+            false
+            _dotfiles_lite_prompt_precmd
+            [[ "$DOTFILES_PROMPT_LAST_STATUS" -eq 1 ]] || exit 1
+            [[ -n "$DOTFILES_PROMPT_DURATION" ]] || exit 1
+            [[ "$DOTFILES_PROMPT_SYMBOL" == *"#BF616A"* ]] || exit 1
+            [[ "$DOTFILES_PROMPT_RIGHT" == *"%m"* ]] || exit 1
+            [[ "$DOTFILES_PROMPT_RIGHT" == *"exit 1"* ]] || exit 1
+            [[ "$DOTFILES_PROMPT_GIT" == *"git:main"* ]] || exit 1
+            [[ "$DOTFILES_PROMPT_GIT" != *"+"* ]] || exit 1
+            [[ "$DOTFILES_PROMPT_GIT" != *"*"* ]] || exit 1
+
+            print changed >> tracked.txt
+            true
+            _dotfiles_lite_prompt_precmd
+            [[ "$DOTFILES_PROMPT_GIT" == *"*"* ]] || exit 1
+            [[ "$DOTFILES_PROMPT_GIT" != *"+"* ]] || exit 1
+
+            command git add tracked.txt || exit 1
+            true
+            _dotfiles_lite_prompt_precmd
+            [[ "$DOTFILES_PROMPT_GIT" == *"+"* ]] || exit 1
+            [[ "$DOTFILES_PROMPT_GIT" != *"*"* ]] || exit 1
+
+            command git switch -q -c "percent%branch" || exit 1
+            true
+            _dotfiles_lite_prompt_precmd
+            [[ "$DOTFILES_PROMPT_GIT" == *"git:percent%%branch"* ]] || exit 1
+
+            DOTFILES_PROMPT_STARTED=$((EPOCHREALTIME - 65.4))
+            true
+            _dotfiles_lite_prompt_precmd
+            [[ "$DOTFILES_PROMPT_LAST_STATUS" -eq 0 ]] || exit 1
+            [[ "$DOTFILES_PROMPT_DURATION" == "1m5s" ]] || exit 1
+            [[ "$DOTFILES_PROMPT_RIGHT" != *"exit"* ]] || exit 1
+
+            true
+            _dotfiles_lite_prompt_precmd
+            [[ -z "$DOTFILES_PROMPT_DURATION" ]] || exit 1
+            [[ "$DOTFILES_PROMPT_RIGHT" == "%F{#81A1C1}%m%f" ]] || exit 1
+        ' _ "$ROOT/config/zsh/zshrc" "$prompt_repo"
+    )
+fi
+
 if grep -R '/Users/' "$ROOT/config" >/dev/null 2>&1; then
     printf 'Found a workstation-specific /Users path in managed configuration.\n' >&2
     exit 1

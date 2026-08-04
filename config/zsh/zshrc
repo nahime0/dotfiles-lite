@@ -5,7 +5,7 @@
 setopt interactive_comments
 setopt no_beep
 
-autoload -Uz colors compinit vcs_info
+autoload -Uz colors compinit
 colors
 
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
@@ -15,13 +15,6 @@ unset cache_dir
 
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
-
-zstyle ':vcs_info:git:*' formats ' %F{blue}git:%b%f'
-zstyle ':vcs_info:git:*' actionformats ' %F{blue}git:%b%f %F{yellow}(%a)%f'
-precmd_functions+=(vcs_info)
-setopt prompt_subst
-PROMPT='%F{cyan}%n@%m%f %F{blue}%~%f${vcs_info_msg_0_}'$'\n''%# '
-RPROMPT='%(?..%F{red}%?%f)'
 
 dotfiles_lite_zsh_dir="${${(%):-%N}:A:h}"
 for module in "$dotfiles_lite_zsh_dir"/modules/*.zsh; do
