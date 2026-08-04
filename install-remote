@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)
+
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+TARGET=''
+PROFILE=server
+export ASSUME_YES=false
+DRY_RUN=false
+SET_SHELL=false
+SKIP_PACKAGES=false
+WITH_OPTIONAL=false
+SSH_ARGS=()
+
+usage() {
+    cat <<'EOF'
+Usage: ./install-remote [options] user@host
+
+Deploy the exact committed checkout over SSH and run the remote installer.
+
+Options:
+  --profile minimal|server  Remote profile (default: server)
+  --with-optional          Install optional server tools when available
+  --skip-packages          Do not use the remote package manager
+  --set-shell              Change the remote user's login shell to Zsh
+  --port PORT              SSH port
+  --identity-file PATH     SSH private key used by the local client
+  --dry-run                Print the deployment without connecting
+  -y, --yes                Do not ask for local confirmation
+  -h, --help               Show this help
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --profile)
+            [[ $# -ge 2 ]] || die "--profile requires a value."
+            PROFILE=$2
+            shift 2
+            ;;
+        --profile=*)
+            PROFILE=${1#*=}
+            shift
+            ;;
+        --with-optional)
+            WITH_OPTIONAL=true
+            shift
+            ;;
+        --skip-packages)
+            SKIP_PACKAGES=true
+            shift
+            ;;
+        --set-shell)
+            SET_SHELL=true
+            shift
+            ;;
+        --port)
+            [[ $# -ge 2 ]] || die "--port requires a value."
+            [[ "$2" =~ ^[0-9]+$ && "$2" -ge 1 && "$2" -le 65535 ]] || die "Invalid SSH port: $2"
+            SSH_ARGS+=(-p "$2")
+            shift 2
+            ;;
+        --identity-file)
+            [[ $# -ge 2 ]] || die "--identity-file requires a value."
+            [[ -f "$2" ]] || die "SSH identity file not found: $2"
+            SSH_ARGS+=(-i "$2")
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -y|--yes)
+            ASSUME_YES=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --*)
+            die "Unknown option: $1"
+            ;;
+        *)
+            [[ -z "$TARGET" ]] || die "Only one SSH target can be provided."
+            TARGET=$1
+            shift
+            ;;
+    esac
+done
+
+[[ -n "$TARGET" ]] || die "An SSH target is required."
+[[ "$TARGET" != -* ]] || die "The SSH target cannot start with a dash."
+case "$PROFILE" in
+    minimal|server) ;;
+    *) die "Unsupported profile: $PROFILE (expected minimal or server)." ;;
+esac
+
+command_exists git || die "Git is required on the local machine."
+command_exists ssh || die "SSH is required on the local machine."
+git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "dotfiles-lite must be a Git checkout."
+
+worktree_status=$(git -C "$SCRIPT_DIR" status --porcelain --untracked-files=normal)
+[[ -z "$worktree_status" ]] || die "The checkout has uncommitted changes. Commit them before remote deployment."
+
+revision=$(git -C "$SCRIPT_DIR" rev-parse HEAD)
+[[ "$revision" =~ ^[0-9a-f]{40}$ ]] || die "Could not resolve a full Git revision."
+
+info "Remote dotfiles-lite deployment"
+printf '  Target:           %s\n' "$TARGET"
+printf '  Revision:         %s\n' "$revision"
+printf '  Profile:          %s\n' "$PROFILE"
+printf '  Package install:  %s\n' "$([[ "$SKIP_PACKAGES" == true ]] && printf 'no' || printf 'yes')"
+printf '  Optional tools:   %s\n' "$([[ "$WITH_OPTIONAL" == true ]] && printf 'yes' || printf 'no')"
+printf '  Change shell:     %s\n' "$([[ "$SET_SHELL" == true ]] && printf 'yes' || printf 'no')"
+
+if [[ "$DRY_RUN" == true ]]; then
+    success "Dry run completed; no SSH connection was made."
+    exit 0
+fi
+
+confirm "Deploy this revision to $TARGET?" || die "Deployment cancelled."
+
+SSH=(ssh "${SSH_ARGS[@]}")
+
+info "Checking the remote baseline."
+"${SSH[@]}" "$TARGET" 'command -v bash >/dev/null && command -v tar >/dev/null' \
+    || die "The remote host needs Bash and tar."
+
+info "Preparing release $revision."
+release_state=$("${SSH[@]}" "$TARGET" "
+set -eu
+root=\"\$HOME/.local/share/dotfiles-lite\"
+release=\"\$root/releases/$revision\"
+mkdir -p \"\$release\"
+if [ -f \"\$release/.revision\" ] && [ \"\$(cat \"\$release/.revision\")\" = '$revision' ]; then
+    printf 'reuse'
+else
+    printf 'upload'
+fi
+")
+
+if [[ "$release_state" == upload ]]; then
+    info "Uploading tracked files from the exact Git revision."
+    git -C "$SCRIPT_DIR" archive --format=tar "$revision" \
+        | "${SSH[@]}" "$TARGET" "tar -xf - -C \"\$HOME/.local/share/dotfiles-lite/releases/$revision\""
+    "${SSH[@]}" "$TARGET" "printf '%s\\n' '$revision' > \"\$HOME/.local/share/dotfiles-lite/releases/$revision/.revision\""
+else
+    info "The exact release already exists remotely; reusing it."
+fi
+
+info "Activating the release."
+"${SSH[@]}" "$TARGET" "
+set -eu
+root=\"\$HOME/.local/share/dotfiles-lite\"
+current=\"\$root/current\"
+if [ -e \"\$current\" ] && [ ! -L \"\$current\" ]; then
+    printf '%s\\n' 'Refusing to replace a non-symlink current path.' >&2
+    exit 1
+fi
+previous=\$(readlink \"\$current\" 2>/dev/null || true)
+printf '%s\\n' \"\$previous\" > \"\$root/.previous-current\"
+ln -sfn 'releases/$revision' \"\$current\"
+"
+
+remote_install="DOTFILES_LINK_ROOT=\"\$HOME/.local/share/dotfiles-lite/current\" \"\$HOME/.local/share/dotfiles-lite/current/install\" --profile \"$PROFILE\" --yes"
+[[ "$WITH_OPTIONAL" == true ]] && remote_install+=" --with-optional"
+[[ "$SKIP_PACKAGES" == true ]] && remote_install+=" --skip-packages"
+[[ "$SET_SHELL" == true ]] && remote_install+=" --set-shell"
+
+SSH_INSTALL=(ssh "${SSH_ARGS[@]}")
+if [[ -t 0 && -t 1 ]]; then
+    SSH_INSTALL+=(-t)
+fi
+
+info "Running the remote installer."
+if "${SSH_INSTALL[@]}" "$TARGET" "$remote_install"; then
+    "${SSH[@]}" "$TARGET" "printf '%s\\n' '$revision' > \"\$HOME/.local/share/dotfiles-lite/.installed-revision\""
+else
+    warn "Remote installation failed; restoring the previously active release."
+    # The variables in this command are intentionally expanded by the remote shell.
+    # shellcheck disable=SC2016
+    "${SSH[@]}" "$TARGET" '
+set -eu
+root="$HOME/.local/share/dotfiles-lite"
+current="$root/current"
+previous=$(cat "$root/.previous-current" 2>/dev/null || true)
+if [ -n "$previous" ]; then
+    ln -sfn "$previous" "$current"
+elif [ -L "$current" ]; then
+    unlink "$current"
+fi
+'
+    die "Remote installation failed."
+fi
+
+success "Remote installation completed at revision $revision."

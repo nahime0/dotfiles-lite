@@ -1,0 +1,9 @@
+# Keep user-managed commands ahead of system commands without assuming Homebrew
+# or a workstation-specific language manager.
+typeset -U path PATH
+path=(
+    "$HOME/.local/bin"
+    "$HOME/bin"
+    $path
+)
+export PATH

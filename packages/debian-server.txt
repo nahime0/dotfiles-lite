@@ -1,0 +1,5 @@
+# Comfortable headless editing and inspection tools.
+neovim
+ripgrep
+fzf
+jq

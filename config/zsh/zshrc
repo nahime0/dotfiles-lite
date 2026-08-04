@@ -1,0 +1,34 @@
+# dotfiles-lite: small, dependency-aware Zsh configuration for remote servers.
+
+[[ -o interactive ]] || return
+
+setopt interactive_comments
+setopt no_beep
+
+autoload -Uz colors compinit vcs_info
+colors
+
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+mkdir -p "$cache_dir"
+compinit -d "$cache_dir/zcompdump"
+unset cache_dir
+
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+
+zstyle ':vcs_info:git:*' formats ' %F{blue}git:%b%f'
+zstyle ':vcs_info:git:*' actionformats ' %F{blue}git:%b%f %F{yellow}(%a)%f'
+precmd_functions+=(vcs_info)
+setopt prompt_subst
+PROMPT='%F{cyan}%n@%m%f %F{blue}%~%f${vcs_info_msg_0_}'$'\n''%# '
+RPROMPT='%(?..%F{red}%?%f)'
+
+dotfiles_lite_zsh_dir="${${(%):-%N}:A:h}"
+for module in "$dotfiles_lite_zsh_dir"/modules/*.zsh; do
+    [[ -r "$module" ]] && source "$module"
+done
+unset module dotfiles_lite_zsh_dir
+
+local_config="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles-lite/zsh.local"
+[[ -r "$local_config" ]] && source "$local_config"
+unset local_config

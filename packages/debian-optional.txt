@@ -1,0 +1,7 @@
+# Installed only with --with-optional and only when the distribution provides it.
+bat
+fd-find
+eza
+zoxide
+btop
+mosh

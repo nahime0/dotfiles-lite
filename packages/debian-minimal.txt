@@ -1,0 +1,6 @@
+# Portable base for an interactive server account.
+ca-certificates
+curl
+git
+zsh
+tmux

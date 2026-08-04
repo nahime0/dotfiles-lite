@@ -1,0 +1,26 @@
+[include]
+    path = ~/.config/dotfiles-lite/git.local
+[init]
+    defaultBranch = main
+[core]
+    autocrlf = input
+    excludesFile = ~/.gitignore
+[color]
+    ui = auto
+[alias]
+    a = add
+    aa = add --all
+    bd = branch -d
+    c = commit -m
+    ca = commit --amend
+    cb = checkout -b
+    co = checkout
+    d = diff
+    last = log -1 HEAD --stat
+    ll = log --oneline
+    p = push
+    pa = push --tags
+    pu = pull --rebase
+    s = status --short --branch
+    sta = stash
+    stap = stash pop

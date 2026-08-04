@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)
+
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=lib/links.sh
+source "$SCRIPT_DIR/lib/links.sh"
+# shellcheck source=lib/packages.sh
+source "$SCRIPT_DIR/lib/packages.sh"
+
+PROFILE=server
+DRY_RUN=false
+export ASSUME_YES=false
+SKIP_PACKAGES=false
+SKIP_CHECKS=false
+SET_SHELL=false
+WITH_OPTIONAL=false
+SHELL_CHANGED=false
+
+usage() {
+    cat <<'EOF'
+Usage: ./install [options]
+
+Install dotfiles-lite on a Debian or Ubuntu server.
+
+Options:
+  --profile minimal|server  Package and configuration profile (default: server)
+  --with-optional          Add bat, fd, eza, zoxide, btop and mosh when available
+  --skip-packages          Configure dotfiles without using the package manager
+  --skip-checks            Skip post-install configuration checks
+  --set-shell              Change the current user's login shell to Zsh
+  --dry-run                Print changes without applying them
+  -y, --yes                Do not ask for confirmation
+  -h, --help               Show this help
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --profile)
+            [[ $# -ge 2 ]] || die "--profile requires a value."
+            PROFILE=$2
+            shift 2
+            ;;
+        --profile=*)
+            PROFILE=${1#*=}
+            shift
+            ;;
+        --with-optional)
+            WITH_OPTIONAL=true
+            shift
+            ;;
+        --skip-packages)
+            SKIP_PACKAGES=true
+            shift
+            ;;
+        --skip-checks)
+            SKIP_CHECKS=true
+            shift
+            ;;
+        --set-shell)
+            SET_SHELL=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -y|--yes)
+            ASSUME_YES=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            die "Unknown option: $1"
+            ;;
+    esac
+done
+
+case "$PROFILE" in
+    minimal|server) ;;
+    *) die "Unsupported profile: $PROFILE (expected minimal or server)." ;;
+esac
+
+LINK_SOURCE_ROOT=${DOTFILES_LINK_ROOT:-$SCRIPT_DIR}
+[[ -d "$LINK_SOURCE_ROOT/config" ]] || die "Configuration root not found: $LINK_SOURCE_ROOT"
+
+state_root="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-lite"
+BACKUP_DIR="$state_root/backups/$(date '+%Y%m%d-%H%M%S')"
+local_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles-lite"
+
+cleanup() {
+    local status=$?
+
+    trap - EXIT
+
+    if [[ $status -ne 0 ]]; then
+        rollback_links || true
+    fi
+
+    exit "$status"
+}
+trap cleanup EXIT
+
+info "dotfiles-lite installation"
+printf '  Profile:          %s\n' "$PROFILE"
+printf '  Managed source:   %s\n' "$LINK_SOURCE_ROOT"
+printf '  Package install:  %s\n' "$([[ "$SKIP_PACKAGES" == true ]] && printf 'no' || printf 'yes')"
+printf '  Optional tools:   %s\n' "$([[ "$WITH_OPTIONAL" == true ]] && printf 'yes' || printf 'no')"
+printf '  Change shell:     %s\n' "$([[ "$SET_SHELL" == true ]] && printf 'yes' || printf 'no')"
+printf '  Dry run:          %s\n' "$DRY_RUN"
+
+if [[ "$DRY_RUN" != true ]] && ! confirm "Continue with the installation?"; then
+    die "Installation cancelled."
+fi
+
+install_packages "$PROFILE" "$WITH_OPTIONAL"
+
+info "Preparing user configuration directories."
+run mkdir -p "$HOME/.local/bin" "$local_config_dir"
+
+link_dotfile "$LINK_SOURCE_ROOT/config/zsh/zshrc" "$HOME/.zshrc"
+link_dotfile "$LINK_SOURCE_ROOT/config/zsh/zprofile" "$HOME/.zprofile"
+link_dotfile "$LINK_SOURCE_ROOT/config/git/gitconfig" "$HOME/.gitconfig"
+link_dotfile "$LINK_SOURCE_ROOT/config/git/gitignore" "$HOME/.gitignore"
+link_dotfile "$LINK_SOURCE_ROOT/config/tmux/tmux.conf" "$HOME/.tmux.conf"
+
+if [[ "$PROFILE" == server ]]; then
+    link_dotfile "$LINK_SOURCE_ROOT/config/nvim" "${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
+fi
+
+if [[ "$SET_SHELL" == true ]]; then
+    zsh_path=$(command -v zsh || true)
+    account_name=$(id -un)
+    login_shell=''
+    [[ -n "$zsh_path" ]] || die "Zsh is not installed; cannot change the login shell."
+
+    if command_exists getent; then
+        login_shell=$(getent passwd "$account_name" | cut -d: -f7)
+    fi
+    [[ -n "$login_shell" ]] || login_shell=${SHELL:-}
+
+    if [[ "$login_shell" == "$zsh_path" ]]; then
+        info "Zsh is already the login shell."
+    else
+        info "Changing the login shell to $zsh_path."
+        if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+            run chsh -s "$zsh_path" "$account_name"
+        elif command_exists sudo && sudo -n true >/dev/null 2>&1; then
+            run sudo chsh -s "$zsh_path" "$account_name"
+        else
+            run chsh -s "$zsh_path"
+        fi
+        SHELL_CHANGED=true
+    fi
+fi
+
+validate_configuration() {
+    local zsh_file
+    local tmux_socket="dotfiles-lite-check-$$"
+
+    if [[ "$SKIP_CHECKS" == true ]]; then
+        info "Skipping post-install checks."
+        return 0
+    fi
+
+    info "Validating managed configuration."
+
+    if command_exists git; then
+        git config --file "$LINK_SOURCE_ROOT/config/git/gitconfig" --list >/dev/null
+    else
+        warn "Git is unavailable; skipping Git configuration validation."
+    fi
+
+    if command_exists zsh; then
+        zsh -n "$LINK_SOURCE_ROOT/config/zsh/zprofile"
+        zsh -n "$LINK_SOURCE_ROOT/config/zsh/zshrc"
+        for zsh_file in "$LINK_SOURCE_ROOT"/config/zsh/modules/*.zsh; do
+            zsh -n "$zsh_file"
+        done
+    else
+        warn "Zsh is unavailable; skipping Zsh syntax validation."
+    fi
+
+    if command_exists tmux; then
+        tmux -L "$tmux_socket" -f "$LINK_SOURCE_ROOT/config/tmux/tmux.conf" new-session -d -s dotfiles-lite-check
+        tmux -L "$tmux_socket" kill-server
+    else
+        warn "tmux is unavailable; skipping tmux configuration validation."
+    fi
+
+    if [[ "$PROFILE" == server ]]; then
+        if command_exists nvim; then
+            nvim --headless -u "$LINK_SOURCE_ROOT/config/nvim/init.lua" '+quitall' >/dev/null
+        else
+            warn "Neovim is unavailable; skipping Neovim configuration validation."
+        fi
+    fi
+}
+
+validate_configuration
+commit_link_transaction
+
+if [[ "$DRY_RUN" == true ]]; then
+    success "Dry run completed; no changes were applied."
+else
+    success "dotfiles-lite installation completed."
+    if [[ $BACKUP_COUNT -gt 0 ]]; then
+        printf '  Previous files: %s\n' "$BACKUP_DIR"
+    else
+        printf '  Previous files: no backup was needed\n'
+    fi
+    if [[ "$SHELL_CHANGED" == true ]]; then
+        printf '  Next step:      reconnect for the new login shell\n'
+    fi
+fi
