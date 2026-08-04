@@ -191,8 +191,12 @@ validate_configuration() {
     fi
 
     if command_exists tmux; then
-        tmux -L "$tmux_socket" -f "$LINK_SOURCE_ROOT/config/tmux/tmux.conf" new-session -d -s dotfiles-lite-check
-        tmux -L "$tmux_socket" kill-server
+        # The SSH client may advertise a terminal whose terminfo entry is not
+        # installed remotely (for example xterm-kitty). The detached validation
+        # only needs a known portable entry and must not depend on the client.
+        TERM=screen-256color tmux -L "$tmux_socket" -f "$LINK_SOURCE_ROOT/config/tmux/tmux.conf" \
+            new-session -d -s dotfiles-lite-check
+        TERM=screen-256color tmux -L "$tmux_socket" kill-server
     else
         warn "tmux is unavailable; skipping tmux configuration validation."
     fi
