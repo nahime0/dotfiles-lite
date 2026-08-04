@@ -21,6 +21,6 @@ docker run --rm \
         test -L "$HOME/.tmux.conf"
         test -L "$HOME/.config/nvim"
         git config --global --get init.defaultBranch | grep -qx main
-        zsh -dfi -c exit
+        zsh -lic '\''alias t >/dev/null; [[ "$EDITOR" == nvim ]]'\''
         nvim --headless +quitall
     '

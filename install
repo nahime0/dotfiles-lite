@@ -183,6 +183,9 @@ validate_configuration() {
         for zsh_file in "$LINK_SOURCE_ROOT"/config/zsh/modules/*.zsh; do
             zsh -n "$zsh_file"
         done
+        if [[ "$DRY_RUN" != true ]]; then
+            zsh -dfic 'source "$1"; [[ -n "${EDITOR:-}" ]]' _ "$LINK_SOURCE_ROOT/config/zsh/zshrc"
+        fi
     else
         warn "Zsh is unavailable; skipping Zsh syntax validation."
     fi

@@ -36,7 +36,7 @@ if (( $+commands[zoxide] )); then
     eval "$(zoxide init zsh)"
 fi
 
-if (( $+commands[fzf] )); then
+if (( $+commands[fzf] )) && [[ -t 0 && -t 1 ]]; then
     if fzf --zsh >/dev/null 2>&1; then
         source <(fzf --zsh)
     else
