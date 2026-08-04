@@ -97,6 +97,11 @@ if command -v zsh >/dev/null 2>&1; then
         cd "$prompt_repo"
         zsh -dfic '
             source "$1"
+            [[ "${aliases[yolo.claude]}" == "claude --dangerously-skip-permissions" ]] || exit 1
+            [[ "${aliases[yolo.codex]}" == "codex --dangerously-bypass-approvals-and-sandbox" ]] || exit 1
+            [[ "${aliases[yolo.kimi]}" == "kimi --yolo" ]] || exit 1
+            [[ "${aliases[yolo.grok]}" == "grok --permission-mode bypassPermissions" ]] || exit 1
+
             DOTFILES_PROMPT_STARTED=$((EPOCHREALTIME - 3.2))
             false
             _dotfiles_lite_prompt_precmd

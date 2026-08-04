@@ -10,6 +10,12 @@ alias gis='git status --short --branch'
 alias gsta='git stash'
 alias gstap='git stash pop'
 
+# Explicitly unrestricted modes for trusted, disposable environments.
+alias yolo.claude='claude --dangerously-skip-permissions'
+alias yolo.codex='codex --dangerously-bypass-approvals-and-sandbox'
+alias yolo.kimi='kimi --yolo'
+alias yolo.grok='grok --permission-mode bypassPermissions'
+
 if (( $+commands[eza] )); then
     alias ls='eza --icons=auto --group-directories-first'
     alias ll='eza -la --icons=auto --group-directories-first'
