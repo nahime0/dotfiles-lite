@@ -9,7 +9,8 @@ workstation paths, private material or large plugin trees.
 - Zsh with history, completion, conditional aliases and a native Nord-style
   prompt showing Git state, command duration, exit status and hostname.
 - Git defaults and aliases, with no identity or signing policy.
-- tmux with `Ctrl+q`, Vi copy mode, mouse support and Vim-aware pane movement.
+- tmux with `Ctrl+q`, Vi copy mode, mouse support, Vim-aware pane movement and
+  a plugin-free Nord status line showing session, windows, hostname and clock.
 - A plugin-free Neovim configuration in the `server` profile.
 - Stable forwarded SSH-agent sockets for long-lived tmux sessions.
 

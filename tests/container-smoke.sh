@@ -22,5 +22,9 @@ docker run --rm \
         test -L "$HOME/.config/nvim"
         git config --global --get init.defaultBranch | grep -qx main
         zsh -lic '\''alias t >/dev/null; [[ "$EDITOR" == nvim ]]'\''
+        tmux -L dotfiles-lite-status new-session -d -s dotfiles-lite-status
+        tmux -L dotfiles-lite-status show-options -gv status-right | grep -q "#h"
+        tmux -L dotfiles-lite-status show-window-options -gv window-status-current-style | grep -q "bg=#88C0D0"
+        tmux -L dotfiles-lite-status kill-server
         nvim --headless +quitall
     '

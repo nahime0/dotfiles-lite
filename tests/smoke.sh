@@ -3,8 +3,13 @@ set -Eeuo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd -P)
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-lite-test.XXXXXX")
+TMUX_TEST_SOCKET=''
 
 cleanup() {
+    if [[ -n "$TMUX_TEST_SOCKET" ]] && command -v tmux >/dev/null 2>&1; then
+        tmux -L "$TMUX_TEST_SOCKET" kill-server >/dev/null 2>&1 || true
+    fi
+
     case "$TEST_ROOT" in
         "${TMPDIR:-/tmp}"/dotfiles-lite-test.*) rm -rf -- "$TEST_ROOT" ;;
         *) printf 'Refusing to remove unexpected test path: %s\n' "$TEST_ROOT" >&2 ;;
@@ -60,6 +65,25 @@ fi
 [[ ! -e "$rollback_home/.config/nvim" ]]
 
 git config --file "$ROOT/config/git/gitconfig" --get init.defaultBranch | grep -qx main
+
+if command -v tmux >/dev/null 2>&1; then
+    TMUX_TEST_SOCKET="dotfiles-lite-smoke-$$"
+    tmux -L "$TMUX_TEST_SOCKET" -f "$ROOT/config/tmux/tmux.conf" \
+        new-session -d -s dotfiles-lite-smoke
+    tmux_status_style=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-style)
+    tmux_status_left=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-left)
+    tmux_status_right=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-right)
+    tmux_window_current=$(tmux -L "$TMUX_TEST_SOCKET" show-window-options -gv window-status-current-style)
+    tmux -L "$TMUX_TEST_SOCKET" kill-server
+    TMUX_TEST_SOCKET=''
+
+    [[ "$tmux_status_style" == *"bg=#2E3440"* ]]
+    [[ "$tmux_status_left" == *"#S"* ]]
+    [[ "$tmux_status_right" == *"#h"* ]]
+    [[ "$tmux_status_right" == *"client_prefix"* ]]
+    [[ "$tmux_status_right" == *"window_zoomed_flag"* ]]
+    [[ "$tmux_window_current" == *"bg=#88C0D0"* ]]
+fi
 
 if command -v zsh >/dev/null 2>&1; then
     prompt_repo="$TEST_ROOT/prompt-repo"
