@@ -1,0 +1,2 @@
+# Installed when available so remote tools understand common client terminals.
+kitty-terminfo

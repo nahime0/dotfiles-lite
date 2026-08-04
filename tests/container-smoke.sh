@@ -15,16 +15,17 @@ docker run --rm \
     bash -lc '
         set -Eeuo pipefail
         cp -a /source /tmp/dotfiles-lite
-        TERM=xterm-kitty /tmp/dotfiles-lite/install --profile server --yes
-        TERM=xterm-kitty /tmp/dotfiles-lite/install --profile server --yes
+        TERM=dotfiles-missing-terminal /tmp/dotfiles-lite/install --profile server --yes
+        TERM=dotfiles-missing-terminal /tmp/dotfiles-lite/install --profile server --yes
         test -L "$HOME/.zshrc"
         test -L "$HOME/.tmux.conf"
         test -L "$HOME/.config/nvim"
+        infocmp xterm-kitty >/dev/null
         git config --global --get init.defaultBranch | grep -qx main
         zsh -lic '\''alias t >/dev/null; [[ "$EDITOR" == nvim ]]'\''
-        TERM=screen-256color tmux -L dotfiles-lite-status new-session -d -s dotfiles-lite-status
-        TERM=screen-256color tmux -L dotfiles-lite-status show-options -gv status-right | grep -q "#h"
-        TERM=screen-256color tmux -L dotfiles-lite-status show-window-options -gv window-status-current-style | grep -q "bg=#88C0D0"
-        TERM=screen-256color tmux -L dotfiles-lite-status kill-server
+        TERM=xterm-kitty tmux -L dotfiles-lite-status new-session -d -s dotfiles-lite-status
+        TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gv status-right | grep -q "#h"
+        TERM=xterm-kitty tmux -L dotfiles-lite-status show-window-options -gv window-status-current-style | grep -q "bg=#88C0D0"
+        TERM=xterm-kitty tmux -L dotfiles-lite-status kill-server
         nvim --headless +quitall
     '

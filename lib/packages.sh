@@ -33,8 +33,9 @@ run_as_root() {
     fi
 }
 
-install_optional_debian_packages() {
+install_available_debian_packages() {
     local file=$1
+    local package_kind=$2
     local package
     local -a available=()
 
@@ -46,7 +47,7 @@ install_optional_debian_packages() {
         if [[ "${DRY_RUN:-false}" == true ]] || apt-cache show "$package" >/dev/null 2>&1; then
             available+=("$package")
         else
-            warn "Optional package is unavailable and will be skipped: $package"
+            warn "$package_kind is unavailable and will be skipped: $package"
         fi
     done < "$file"
 
@@ -78,8 +79,11 @@ install_packages() {
     info "Installing the $profile package profile."
     run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${PACKAGE_LIST[@]}"
 
+    info "Installing available terminal compatibility data."
+    install_available_debian_packages "$SCRIPT_DIR/packages/debian-terminal.txt" "Terminal compatibility package"
+
     if [[ "$with_optional" == true ]]; then
         info "Installing available optional server tools."
-        install_optional_debian_packages "$SCRIPT_DIR/packages/debian-optional.txt"
+        install_available_debian_packages "$SCRIPT_DIR/packages/debian-optional.txt" "Optional package"
     fi
 }

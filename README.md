@@ -24,6 +24,9 @@ No SSH keys, Git identity, tokens or files from private dotfiles are installed.
 `--with-optional` to also install any available packages among bat, fd, eza,
 zoxide, btop and mosh.
 
+When available, both profiles also install Kitty's small terminfo package so
+tmux and other remote programs understand a client advertising `xterm-kitty`.
+
 Package installation currently targets Debian and Ubuntu through APT. On a
 different distribution, provision the commands separately and use
 `--skip-packages`.
