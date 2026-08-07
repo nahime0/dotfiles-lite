@@ -2,6 +2,19 @@
 
 [[ -o interactive ]] || return
 
+# Minimal SSH environments sometimes omit locale variables even when the host
+# provides a UTF-8 locale. Set a portable fallback only when the user or system
+# has not selected one explicitly.
+if [[ -z "${LANG:-}" && -z "${LC_ALL:-}" && -z "${LC_CTYPE:-}" ]]; then
+    for dotfiles_lite_locale in C.UTF-8 C.utf8; do
+        if [[ "$(LC_ALL="$dotfiles_lite_locale" locale charmap 2>/dev/null)" == UTF-8 ]]; then
+            export LANG="$dotfiles_lite_locale"
+            break
+        fi
+    done
+    unset dotfiles_lite_locale
+fi
+
 setopt interactive_comments
 setopt no_beep
 

@@ -86,6 +86,19 @@ if command -v tmux >/dev/null 2>&1; then
 fi
 
 if command -v zsh >/dev/null 2>&1; then
+    # shellcheck disable=SC2016 # Expanded by the nested Zsh process.
+    env -u LANG -u LC_ALL -u LC_CTYPE zsh -dfic '
+        source "$1"
+        [[ "$LANG" == C.UTF-8 || "$LANG" == C.utf8 ]] || exit 1
+        [[ "$(locale charmap)" == UTF-8 ]] || exit 1
+    ' _ "$ROOT/config/zsh/zshrc"
+
+    # shellcheck disable=SC2016 # Expanded by the nested Zsh process.
+    env -u LC_ALL -u LC_CTYPE LANG=C zsh -dfic '
+        source "$1"
+        [[ "$LANG" == C ]] || exit 1
+    ' _ "$ROOT/config/zsh/zshrc"
+
     prompt_repo="$TEST_ROOT/prompt-repo"
     git init -q -b main "$prompt_repo"
     printf 'tracked\n' > "$prompt_repo/tracked.txt"

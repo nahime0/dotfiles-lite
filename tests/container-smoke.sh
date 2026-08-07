@@ -23,6 +23,11 @@ docker run --rm \
         infocmp xterm-kitty >/dev/null
         git config --global --get init.defaultBranch | grep -qx main
         zsh -lic '\''alias t >/dev/null; [[ "$EDITOR" == nvim ]]'\''
+        env -u LANG -u LC_ALL -u LC_CTYPE zsh -dfic '\''
+            source "$1"
+            [[ "$LANG" == C.UTF-8 || "$LANG" == C.utf8 ]]
+            [[ "$(locale charmap)" == UTF-8 ]]
+        '\'' _ /tmp/dotfiles-lite/config/zsh/zshrc
         TERM=xterm-kitty tmux -L dotfiles-lite-status new-session -d -s dotfiles-lite-status
         TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gv status-right | grep -q "#h"
         TERM=xterm-kitty tmux -L dotfiles-lite-status show-window-options -gv window-status-current-style | grep -q "bg=#88C0D0"
