@@ -11,7 +11,7 @@ workstation paths, private material or large plugin trees.
   and hostname.
 - Git defaults and aliases, with no identity or signing policy.
 - tmux with `Ctrl+q`, Vi copy mode, mouse support, Vim-aware pane movement and
-  a plugin-free Nord status line showing session, windows, hostname and clock.
+  plugin-free Nord light/dark themes matching the main dotfiles.
 - A plugin-free Neovim configuration in the `server` profile.
 - Stable forwarded SSH-agent sockets for long-lived tmux sessions.
 
@@ -27,6 +27,10 @@ zoxide, btop and mosh.
 
 When available, both profiles also install Kitty's small terminfo package so
 tmux and other remote programs understand a client advertising `xterm-kitty`.
+The tmux theme uses Powerline separators rendered by the client terminal, so a
+compatible local font is required but no font is installed on the server. tmux
+3.6 and newer follow the client's light/dark appearance automatically; older
+versions use Nord dark.
 
 Package installation currently targets Debian and Ubuntu through APT. On a
 different distribution, provision the commands separately and use

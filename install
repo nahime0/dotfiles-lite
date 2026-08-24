@@ -129,6 +129,7 @@ link_dotfile "$LINK_SOURCE_ROOT/config/zsh/zprofile" "$HOME/.zprofile"
 link_dotfile "$LINK_SOURCE_ROOT/config/git/gitconfig" "$HOME/.gitconfig"
 link_dotfile "$LINK_SOURCE_ROOT/config/git/gitignore" "$HOME/.gitignore"
 link_dotfile "$LINK_SOURCE_ROOT/config/tmux/tmux.conf" "$HOME/.tmux.conf"
+link_dotfile "$LINK_SOURCE_ROOT/config/tmux/themes" "$HOME/.tmux/themes"
 
 if [[ "$PROFILE" == server ]]; then
     link_dotfile "$LINK_SOURCE_ROOT/config/nvim" "${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
@@ -163,6 +164,7 @@ fi
 validate_configuration() {
     local zsh_file
     local tmux_socket="dotfiles-lite-check-$$"
+    local tmux_theme
 
     if [[ "$SKIP_CHECKS" == true ]]; then
         info "Skipping post-install checks."
@@ -196,7 +198,11 @@ validate_configuration() {
         # only needs a known portable entry and must not depend on the client.
         TERM=screen-256color tmux -L "$tmux_socket" -f "$LINK_SOURCE_ROOT/config/tmux/tmux.conf" \
             new-session -d -s dotfiles-lite-check
+        tmux_theme=$(TERM=screen-256color tmux -L "$tmux_socket" show-options -gqv @dotfiles_tmux_theme)
         TERM=screen-256color tmux -L "$tmux_socket" kill-server
+        if [[ "$DRY_RUN" != true && "$tmux_theme" != nord ]]; then
+            die "tmux did not load the managed Nord theme."
+        fi
     else
         warn "tmux is unavailable; skipping tmux configuration validation."
     fi

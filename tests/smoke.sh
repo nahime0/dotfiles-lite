@@ -29,6 +29,8 @@ printf 'previous zsh configuration\n' > "$HOME/.zshrc"
 [[ -L "$HOME/.gitconfig" ]]
 [[ -L "$HOME/.gitignore" ]]
 [[ -L "$HOME/.tmux.conf" ]]
+[[ -L "$HOME/.tmux/themes" ]]
+[[ "$(readlink "$HOME/.tmux/themes")" == "$ROOT/config/tmux/themes" ]]
 [[ -L "$HOME/.config/nvim" ]]
 [[ -d "$HOME/.config/dotfiles-lite" ]]
 
@@ -37,18 +39,19 @@ backup_zshrc=$(find "$HOME/.local/state/dotfiles-lite/backups" -type f -name .zs
 [[ "$(cat "$backup_zshrc")" == 'previous zsh configuration' ]]
 
 backup_count_before=$(find "$HOME/.local/state/dotfiles-lite/backups" -type f | wc -l | tr -d ' ')
-"$ROOT/install" --profile server --skip-packages --skip-checks --yes
+"$ROOT/install" --profile server --skip-packages --yes
 backup_count_after=$(find "$HOME/.local/state/dotfiles-lite/backups" -type f | wc -l | tr -d ' ')
 [[ "$backup_count_before" == "$backup_count_after" ]]
 
 dry_home="$TEST_ROOT/dry-home"
-HOME="$dry_home" "$ROOT/install" --profile server --skip-packages --skip-checks --dry-run --yes >/dev/null
+HOME="$dry_home" "$ROOT/install" --profile server --skip-packages --dry-run --yes >/dev/null
 [[ ! -e "$dry_home" ]]
 
 rollback_home="$TEST_ROOT/rollback-home"
 fake_bin="$TEST_ROOT/fake-bin"
-mkdir -p "$rollback_home" "$fake_bin"
+mkdir -p "$rollback_home/.tmux/themes" "$fake_bin"
 printf 'restore me\n' > "$rollback_home/.zshrc"
+printf 'previous tmux theme\n' > "$rollback_home/.tmux/themes/custom.conf"
 ln -s "$(type -P false)" "$fake_bin/nvim"
 
 if HOME="$rollback_home" PATH="$fake_bin:$PATH" \
@@ -62,6 +65,8 @@ fi
 [[ ! -e "$rollback_home/.zprofile" ]]
 [[ ! -e "$rollback_home/.gitconfig" ]]
 [[ ! -e "$rollback_home/.tmux.conf" ]]
+[[ ! -L "$rollback_home/.tmux/themes" ]]
+[[ "$(cat "$rollback_home/.tmux/themes/custom.conf")" == 'previous tmux theme' ]]
 [[ ! -e "$rollback_home/.config/nvim" ]]
 
 git config --file "$ROOT/config/git/gitconfig" --get init.defaultBranch | grep -qx main
@@ -70,21 +75,37 @@ if command -v tmux >/dev/null 2>&1; then
     TMUX_TEST_SOCKET="dotfiles-lite-smoke-$$"
     tmux -L "$TMUX_TEST_SOCKET" -f "$ROOT/config/tmux/tmux.conf" \
         new-session -d -s dotfiles-lite-smoke
+    tmux_theme=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gqv @dotfiles_tmux_theme)
     tmux_status_position=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-position)
     tmux_status_style=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-style)
     tmux_status_left=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-left)
     tmux_status_right=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-right)
-    tmux_window_current=$(tmux -L "$TMUX_TEST_SOCKET" show-window-options -gv window-status-current-style)
+    tmux_window_current=$(tmux -L "$TMUX_TEST_SOCKET" show-window-options -gv window-status-current-format)
+    tmux_active_border=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv pane-active-border-style)
+
+    tmux -L "$TMUX_TEST_SOCKET" source-file "$HOME/.tmux/themes/nord-light.conf"
+    tmux_light_theme=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gqv @dotfiles_tmux_theme)
+    tmux_light_status_style=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-style)
+    tmux_light_active_border=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv pane-active-border-style)
+
+    tmux -L "$TMUX_TEST_SOCKET" source-file "$HOME/.tmux/themes/nord.conf"
+    tmux_restored_theme=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gqv @dotfiles_tmux_theme)
     tmux -L "$TMUX_TEST_SOCKET" kill-server
     TMUX_TEST_SOCKET=''
 
+    [[ "$tmux_theme" == nord ]]
     [[ "$tmux_status_position" == top ]]
     [[ "$tmux_status_style" == *"bg=#2E3440"* ]]
-    [[ "$tmux_status_left" == *"#S"* ]]
-    [[ "$tmux_status_right" == *"#h"* ]]
+    [[ "$tmux_status_left" == *"#S"*""* ]]
+    [[ "$tmux_status_right" == *"#H"* ]]
     [[ "$tmux_status_right" == *"client_prefix"* ]]
-    [[ "$tmux_status_right" == *"window_zoomed_flag"* ]]
+    [[ "$tmux_window_current" == *""* ]]
     [[ "$tmux_window_current" == *"bg=#88C0D0"* ]]
+    [[ "$tmux_active_border" == *"fg=#5E81AC"* ]]
+    [[ "$tmux_light_theme" == nord-light ]]
+    [[ "$tmux_light_status_style" == *"bg=#E5E9F0"* ]]
+    [[ "$tmux_light_active_border" == *"fg=#3B5E85"* ]]
+    [[ "$tmux_restored_theme" == nord ]]
 fi
 
 if command -v zsh >/dev/null 2>&1; then

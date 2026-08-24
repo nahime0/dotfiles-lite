@@ -19,6 +19,7 @@ docker run --rm \
         TERM=dotfiles-missing-terminal /tmp/dotfiles-lite/install --profile server --yes
         test -L "$HOME/.zshrc"
         test -L "$HOME/.tmux.conf"
+        test -L "$HOME/.tmux/themes"
         test -L "$HOME/.config/nvim"
         infocmp xterm-kitty >/dev/null
         git config --global --get init.defaultBranch | grep -qx main
@@ -29,9 +30,10 @@ docker run --rm \
             [[ "$(locale charmap)" == UTF-8 ]]
         '\'' _ /tmp/dotfiles-lite/config/zsh/zshrc
         TERM=xterm-kitty tmux -L dotfiles-lite-status new-session -d -s dotfiles-lite-status
+        TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gqv @dotfiles_tmux_theme | grep -qx nord
         TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gv status-position | grep -qx top
-        TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gv status-right | grep -q "#h"
-        TERM=xterm-kitty tmux -L dotfiles-lite-status show-window-options -gv window-status-current-style | grep -q "bg=#88C0D0"
+        TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gv status-right | grep -q "#H"
+        TERM=xterm-kitty tmux -L dotfiles-lite-status show-window-options -gv window-status-current-format | grep -q "bg=#88C0D0"
         TERM=xterm-kitty tmux -L dotfiles-lite-status kill-server
         nvim --headless +quitall
     '
