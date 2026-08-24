@@ -29,6 +29,7 @@ docker run --rm \
             [[ "$(locale charmap)" == UTF-8 ]]
         '\'' _ /tmp/dotfiles-lite/config/zsh/zshrc
         TERM=xterm-kitty tmux -L dotfiles-lite-status new-session -d -s dotfiles-lite-status
+        TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gv status-position | grep -qx top
         TERM=xterm-kitty tmux -L dotfiles-lite-status show-options -gv status-right | grep -q "#h"
         TERM=xterm-kitty tmux -L dotfiles-lite-status show-window-options -gv window-status-current-style | grep -q "bg=#88C0D0"
         TERM=xterm-kitty tmux -L dotfiles-lite-status kill-server

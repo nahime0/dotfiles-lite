@@ -70,6 +70,7 @@ if command -v tmux >/dev/null 2>&1; then
     TMUX_TEST_SOCKET="dotfiles-lite-smoke-$$"
     tmux -L "$TMUX_TEST_SOCKET" -f "$ROOT/config/tmux/tmux.conf" \
         new-session -d -s dotfiles-lite-smoke
+    tmux_status_position=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-position)
     tmux_status_style=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-style)
     tmux_status_left=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-left)
     tmux_status_right=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-right)
@@ -77,6 +78,7 @@ if command -v tmux >/dev/null 2>&1; then
     tmux -L "$TMUX_TEST_SOCKET" kill-server
     TMUX_TEST_SOCKET=''
 
+    [[ "$tmux_status_position" == top ]]
     [[ "$tmux_status_style" == *"bg=#2E3440"* ]]
     [[ "$tmux_status_left" == *"#S"* ]]
     [[ "$tmux_status_right" == *"#h"* ]]
