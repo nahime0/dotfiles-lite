@@ -80,6 +80,8 @@ if command -v tmux >/dev/null 2>&1; then
     tmux_status_style=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-style)
     tmux_status_left=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-left)
     tmux_status_right=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-right)
+    tmux_prefix_preview=${tmux_status_right//client_prefix/'#{==:1,1}'}
+    tmux_prefix_preview=$(tmux -L "$TMUX_TEST_SOCKET" display-message -p "$tmux_prefix_preview")
     tmux_window_current=$(tmux -L "$TMUX_TEST_SOCKET" show-window-options -gv window-status-current-format)
     tmux_active_border=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv pane-active-border-style)
 
@@ -87,11 +89,14 @@ if command -v tmux >/dev/null 2>&1; then
     tmux_light_theme=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gqv @dotfiles_tmux_theme)
     tmux_light_status_style=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-style)
     tmux_light_active_border=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv pane-active-border-style)
+    tmux_light_status_right=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gv status-right)
+    tmux_light_prefix_preview=${tmux_light_status_right//client_prefix/'#{==:1,1}'}
+    tmux_light_prefix_preview=$(tmux -L "$TMUX_TEST_SOCKET" display-message -p "$tmux_light_prefix_preview")
 
     tmux -L "$TMUX_TEST_SOCKET" source-file "$HOME/.tmux/themes/nord.conf"
     tmux_restored_theme=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gqv @dotfiles_tmux_theme)
+    tmux_theme_toggle=$(tmux -L "$TMUX_TEST_SOCKET" list-keys -T prefix T)
     tmux -L "$TMUX_TEST_SOCKET" kill-server
-    TMUX_TEST_SOCKET=''
 
     [[ "$tmux_theme" == nord ]]
     [[ "$tmux_status_position" == top ]]
@@ -99,19 +104,62 @@ if command -v tmux >/dev/null 2>&1; then
     [[ "$tmux_status_left" == *"#S"*""* ]]
     [[ "$tmux_status_right" == *"#H"* ]]
     [[ "$tmux_status_right" == *"client_prefix"* ]]
+    [[ "$tmux_prefix_preview" == '#[fg=#BF616A]#[bg=#2E3440]'*' PREFIX '* ]]
     [[ "$tmux_window_current" == *""* ]]
     [[ "$tmux_window_current" == *"bg=#88C0D0"* ]]
     [[ "$tmux_active_border" == *"fg=#5E81AC"* ]]
     [[ "$tmux_light_theme" == nord-light ]]
     [[ "$tmux_light_status_style" == *"bg=#E5E9F0"* ]]
     [[ "$tmux_light_active_border" == *"fg=#3B5E85"* ]]
+    [[ "$tmux_light_prefix_preview" == '#[fg=#AE4750]#[bg=#E5E9F0]'*' PREFIX '* ]]
     [[ "$tmux_restored_theme" == nord ]]
+    [[ "$tmux_theme_toggle" == *'nord-light.conf'* ]]
+
+    TMUX_TEST_SOCKET="dotfiles-lite-smoke-light-$$"
+    DOTFILES_LITE_TMUX_THEME=light tmux -L "$TMUX_TEST_SOCKET" \
+        -f "$ROOT/config/tmux/tmux.conf" new-session -d -s dotfiles-lite-smoke-light
+    tmux_initial_light_theme=$(tmux -L "$TMUX_TEST_SOCKET" show-options -gqv @dotfiles_tmux_theme)
+    tmux -L "$TMUX_TEST_SOCKET" kill-server
+    TMUX_TEST_SOCKET=''
+
+    [[ "$tmux_initial_light_theme" == nord-light ]]
 fi
 
 if command -v zsh >/dev/null 2>&1; then
+    tmux_fake_bin="$TEST_ROOT/tmux-fake-bin"
+    mkdir -p "$tmux_fake_bin"
+    # shellcheck disable=SC2016 # The fake script expands these variables when run.
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'printf "theme=%s\\n" "$DOTFILES_LITE_TMUX_THEME"' \
+        'printf "arg=<%s>\\n" "$@"' > "$tmux_fake_bin/tmux"
+    chmod +x "$tmux_fake_bin/tmux"
+    tmux_wrapper_output=$(PATH="$tmux_fake_bin:$PATH" HOME="$HOME" zsh -dfc '
+        source "$1"
+        t light -d
+    ' _ "$ROOT/config/zsh/modules/tmux.zsh")
+    [[ "$tmux_wrapper_output" == *'theme=light'* ]]
+    [[ "$tmux_wrapper_output" == *'arg=<'"$HOME"'/.tmux/themes/nord-light.conf>'* ]]
+    [[ "$tmux_wrapper_output" == *'arg=<;>'* ]]
+    [[ "$tmux_wrapper_output" == *'arg=<new-session>'* ]]
+    [[ "$tmux_wrapper_output" == *'arg=<-d>'* ]]
+
     # shellcheck disable=SC2016 # Expanded by the nested Zsh process.
     env -u LANG -u LC_ALL -u LC_CTYPE zsh -dfic '
         source "$1"
+        [[ "$(whence -w t)" == "t: function" ]] || exit 1
+        DOTFILES_LITE_TMUX_THEME=light
+        [[ "$(_dotfiles_lite_tmux_detect_theme)" == light ]] || exit 1
+        DOTFILES_LITE_TMUX_THEME=dark
+        [[ "$(_dotfiles_lite_tmux_detect_theme)" == dark ]] || exit 1
+        unset DOTFILES_LITE_TMUX_THEME
+        COLORFGBG="0;15"
+        [[ "$(_dotfiles_lite_tmux_detect_theme)" == light ]] || exit 1
+        COLORFGBG="15;0"
+        [[ "$(_dotfiles_lite_tmux_detect_theme)" == dark ]] || exit 1
+        unset COLORFGBG
+        [[ "$(_dotfiles_lite_tmux_theme_from_rgb "rgb:e5e5/e9e9/f0f0")" == light ]] || exit 1
+        [[ "$(_dotfiles_lite_tmux_theme_from_rgb "rgb:2e2e/3434/4040")" == dark ]] || exit 1
         [[ "$LANG" == C.UTF-8 || "$LANG" == C.utf8 ]] || exit 1
         [[ "$(locale charmap)" == UTF-8 ]] || exit 1
     ' _ "$ROOT/config/zsh/zshrc"

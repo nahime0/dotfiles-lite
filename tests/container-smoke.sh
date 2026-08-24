@@ -23,7 +23,7 @@ docker run --rm \
         test -L "$HOME/.config/nvim"
         infocmp xterm-kitty >/dev/null
         git config --global --get init.defaultBranch | grep -qx main
-        zsh -lic '\''alias t >/dev/null; [[ "$EDITOR" == nvim ]]'\''
+        zsh -lic '\''[[ "$(whence -w t)" == "t: function" ]]; [[ "$EDITOR" == nvim ]]'\''
         env -u LANG -u LC_ALL -u LC_CTYPE zsh -dfic '\''
             source "$1"
             [[ "$LANG" == C.UTF-8 || "$LANG" == C.utf8 ]]

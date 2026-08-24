@@ -29,8 +29,10 @@ When available, both profiles also install Kitty's small terminfo package so
 tmux and other remote programs understand a client advertising `xterm-kitty`.
 The tmux theme uses Powerline separators rendered by the client terminal, so a
 compatible local font is required but no font is installed on the server. tmux
-3.6 and newer follow the client's light/dark appearance automatically; older
-versions use Nord dark.
+3.6 and newer follow subsequent client appearance changes automatically. The
+`t` helper queries the client background when attaching, so older tmux releases
+also select Nord light or dark. Use `t light` or `t dark` to force a theme, or
+press `Ctrl+q T` inside tmux to toggle it manually.
 
 Package installation currently targets Debian and Ubuntu through APT. On a
 different distribution, provision the commands separately and use

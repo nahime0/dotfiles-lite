@@ -1,5 +1,3 @@
-alias t='tmux new-session -A -s 0'
-
 alias ga='git add'
 alias gaa='git add --all'
 alias gc='git commit -m'
