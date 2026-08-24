@@ -78,10 +78,27 @@ _dotfiles_lite_tmux_detect_theme() {
     _dotfiles_lite_tmux_query_terminal_theme 2>/dev/null || print -r -- dark
 }
 
+_dotfiles_lite_tmux_run_with_theme() {
+    emulate -L zsh
+
+    local theme=$1 theme_file
+    shift
+
+    theme_file="$HOME/.tmux/themes/nord.conf"
+    [[ "$theme" == light ]] && theme_file="$HOME/.tmux/themes/nord-light.conf"
+
+    if [[ -r "$theme_file" ]]; then
+        command env DOTFILES_LITE_TMUX_THEME="$theme" tmux \
+            source-file "$theme_file" \; "$@"
+    else
+        command tmux "$@"
+    fi
+}
+
 t() {
     emulate -L zsh
 
-    local requested=auto theme theme_file
+    local requested=auto theme
     if [[ "${1:-}" == light || "${1:-}" == dark || "${1:-}" == auto ]]; then
         requested=$1
         shift
@@ -93,13 +110,24 @@ t() {
         theme=$requested
     fi
 
-    theme_file="$HOME/.tmux/themes/nord.conf"
-    [[ "$theme" == light ]] && theme_file="$HOME/.tmux/themes/nord-light.conf"
+    _dotfiles_lite_tmux_run_with_theme "$theme" new-session -A -s 0 "$@"
+}
 
-    if [[ -r "$theme_file" ]]; then
-        command env DOTFILES_LITE_TMUX_THEME="$theme" tmux \
-            source-file "$theme_file" \; new-session -A -s 0 "$@"
-    else
-        command tmux new-session -A -s 0 "$@"
-    fi
+# Preserve normal tmux subcommands, but make every common interactive launch
+# use the same terminal-theme detection as the short `t` helper.
+tmux() {
+    emulate -L zsh
+
+    case "${1:-}" in
+        '')
+            t
+            ;;
+        new|new-session|attach|attach-session|a)
+            local theme=$(_dotfiles_lite_tmux_detect_theme)
+            _dotfiles_lite_tmux_run_with_theme "$theme" "$@"
+            ;;
+        *)
+            command tmux "$@"
+            ;;
+    esac
 }

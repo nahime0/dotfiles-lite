@@ -131,7 +131,7 @@ if command -v zsh >/dev/null 2>&1; then
     # shellcheck disable=SC2016 # The fake script expands these variables when run.
     printf '%s\n' \
         '#!/bin/sh' \
-        'printf "theme=%s\\n" "$DOTFILES_LITE_TMUX_THEME"' \
+        'if [ -n "${DOTFILES_LITE_TMUX_THEME:-}" ]; then printf "theme=%s\\n" "$DOTFILES_LITE_TMUX_THEME"; fi' \
         'printf "arg=<%s>\\n" "$@"' > "$tmux_fake_bin/tmux"
     chmod +x "$tmux_fake_bin/tmux"
     tmux_wrapper_output=$(PATH="$tmux_fake_bin:$PATH" HOME="$HOME" zsh -dfc '
@@ -144,10 +144,26 @@ if command -v zsh >/dev/null 2>&1; then
     [[ "$tmux_wrapper_output" == *'arg=<new-session>'* ]]
     [[ "$tmux_wrapper_output" == *'arg=<-d>'* ]]
 
+    tmux_command_output=$(PATH="$tmux_fake_bin:$PATH" HOME="$HOME" \
+        DOTFILES_LITE_TMUX_THEME=light zsh -dfc '
+            source "$1"
+            tmux
+        ' _ "$ROOT/config/zsh/modules/tmux.zsh")
+    [[ "$tmux_command_output" == *'theme=light'* ]]
+    [[ "$tmux_command_output" == *'arg=<new-session>'* ]]
+
+    tmux_list_output=$(PATH="$tmux_fake_bin:$PATH" HOME="$HOME" zsh -dfc '
+        source "$1"
+        tmux list-sessions
+    ' _ "$ROOT/config/zsh/modules/tmux.zsh")
+    [[ "$tmux_list_output" != *'theme='* ]]
+    [[ "$tmux_list_output" == *'arg=<list-sessions>'* ]]
+
     # shellcheck disable=SC2016 # Expanded by the nested Zsh process.
     env -u LANG -u LC_ALL -u LC_CTYPE zsh -dfic '
         source "$1"
         [[ "$(whence -w t)" == "t: function" ]] || exit 1
+        [[ "$(whence -w tmux)" == "tmux: function" ]] || exit 1
         DOTFILES_LITE_TMUX_THEME=light
         [[ "$(_dotfiles_lite_tmux_detect_theme)" == light ]] || exit 1
         DOTFILES_LITE_TMUX_THEME=dark
